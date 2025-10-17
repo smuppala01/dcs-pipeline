@@ -1,11 +1,12 @@
 pipeline {
-   agent { label 'cxo_wbuild010' }
+   agent { label 'cxo_wbuild014' }
    environment {   
              REPO="sm"
-             EXT_PATH=";C:\\Program Files (x86)\\MSBuild\\12.0\\bin\\"
+             EXT_PATH=";C:\\windows\\system32"
              JAVA_HOME="C:\\Program Files\\Java\\jdk1.8.0_144"
              CERT_ROOT="\\\\cxo-samba-01.eng.nimblestorage.com\\share\\build_env\\CodeSignCert"
              THIRD_PARTY_BUILD_TOOLS="\\\\cxo-samba-01.eng.nimblestorage.com\\share\\build_env\\third_party\\"
+             SHFBROOT="C:\\SandCastle\\EWSoftware\\Sandcastle Help File Builder\\"
              SAMBA_CODE_SIGN_STAGE_DIR="\\\\cxo-samba-01.eng.nimblestorage.com\\artifactswindows-cxo\\code_sign_stage_dir"
              //echo "setting windows version per ticket ESS-2745"
              //"""
@@ -59,6 +60,7 @@ pipeline {
                script {
                    timestamps {
                        bat """
+                       call "C:\\Program Files (x86)\\Microsoft Visual Studio 12.0\\VC\\vcvarsall.bat" x86_amd64
                        for /f "tokens=1,2,3,4 delims=. " %%a in ("%VERSION%") do set win_version=%%a.%%b.%%c
                        echo windows version is %win_version%
                        REM echo version=%win_version%>>buildinfo.txt
@@ -80,7 +82,7 @@ pipeline {
                        echo "Current Working dir: %CD%"
                        cd "C:\\var\\workspace\\%JOB_NAME%\\%BRANCH%\\nimos\\sm\\src\\sdk"
                        echo "Current Working dir: %CD%"
-                       C:\\var\\lib\\workspace\\gradle-5.6\\bin\\gradle.bat -PSMLinuxArtifactDir=%SM_BUILD_NUMBER% copyCppSrcFromArtifact buildWin2013
+                       C:\\var\\lib\\workspace\\gradle-5.6\\bin\\gradle.bat -PSMLinuxArtifactDir=%SM_BUILD_NUMBER% cleanCSharpSdk copyCSharpSrcFromArtifacts buildCSharpWin
                        """
                    }
                }
@@ -95,8 +97,9 @@ pipeline {
                    echo "Post Build processing"
                    echo "Current Working dir: %CD%"
                    echo Copying artifacts to samba share
-                   xcopy /e /i %CD%\\%BRANCH%\\nimos\\sm\\build\\rest-sdk \\\\cxo-samba-01.eng.nimblestorage.com\\artifactswindows-cxo\\%JOB_NAME%\\%BRANCH%\\%BUILD_NUMBER%\\rest-sdk
-                   xcopy /e /i %CD%\\%BRANCH%\\buildinfo.txt \\\\cxo-samba-01.eng.nimblestorage.com\\artifactswindows-cxo\\%JOB_NAME%\\%BRANCH%\\%BUILD_NUMBER%
+                   set directory="C:\\var\\workspace\\%JOB_NAME%"
+                   xcopy /e /i %directory%\\%BRANCH%\\nimos\\sm\\build\\rest-sdk\\sdk\\c# \\\\cxo-samba-01.eng.nimblestorage.com\\artifactswindows-cxo\\%JOB_NAME%\\%BRANCH%\\%BUILD_NUMBER%\\rest-sdk\\sdk\\c#
+                   xcopy /e /i %directory%\\%BRANCH%\\buildinfo.txt \\\\cxo-samba-01.eng.nimblestorage.com\\artifactswindows-cxo\\%JOB_NAME%\\%BRANCH%\\%BUILD_NUMBER%
                    
                    echo Creating latest successful link
                    set artdir=\\\\cxo-samba-01.eng.nimblestorage.com\\artifactswindows-cxo\\%JOB_NAME%\\%BRANCH%
@@ -112,19 +115,13 @@ pipeline {
                         rmdir /s /q %latest%.old || exit /b 1
                    )
                    rmdir /s /q \\\\cxo-samba-01.eng.nimblestorage.com\\artifactswindows-cxo\\%JOB_NAME%\\%BRANCH%\\%BUILD_NUMBER%\\nimos
-                   echo Trigger remote job
                    """
-                   build job: 'windows_addtodbsm_pipe', propagate: false,
-                         parameters:[ [$class:'StringParameterValue', name:'parentjobname', value: "${env.JOB_NAME}"], 
-                                      [$class:'StringParameterValue', name:'parentjobnumber', value: "${env.BUILD_NUMBER}"],
-                                      [$class:'StringParameterValue', name:'branch', value: "${env.BRANCH}"]
-                                    ]
-                                                  
                    emailext to: 'supraja.muppala@hpe.com',
                    subject: "${env.JOB_NAME} - Build # ${env.BUILD_NUMBER} Success",
                    mimeType: 'text/html',
                    body: """<p>BUILD URL: ${env.BUILD_URL}</p> <p>Project: ${env.JOB_NAME}</p> <p>Server: ${env.NODE_NAME}</p> <p>Blue Ocean: ${env.RUN_DISPLAY_URL}</p>""",
                    attachLog: true
+                   
                }
            }
        }
